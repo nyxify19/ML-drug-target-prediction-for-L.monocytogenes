@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Listeria · Target Pipeline</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #030508;
+  --surface: rgba(8, 14, 24, 0.85);
+  --border: rgba(139, 92, 246, 0.15); /* purple tint */
+  --accent: #60a5fa; /* restored to blue for metrics */
+  --accent2: #7D26CD; /* vibrant purple */
+  --muted: #64748b;
+  --text: #cbd5e1;
+  --font-head: 'Syncopate', sans-serif;
+  --font-mono: 'Share Tech Mono', monospace;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  overflow-x: hidden;
+}
+
+/* ── BACKGROUND HELIX (full-page fixed) ── */
+#helix-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.80;
+  will-change: transform;
+}
+
+#star-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── HERO ── */
+#hero {
+  position: relative;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.hero-title {
+  font-family: var(--font-head);
+  font-size: clamp(14px, 2.5vw, 24px);
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #7D26CD; /* vibrant purple */
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.hero-sub {
+  font-family: var(--font-head);
+  font-size: 10px;
+  color: #ffffff; /* crisp white */
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+/* ── MAIN LAYOUT ── */
+main {
+  position: relative;
+  z-index: 2;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 60px 32px 80px;
+  position: relative;
+  z-index: 2;
+}
+
+/* ── SECTION HEADERS ── */
+.sec-label {
+  font-family: var(--font-head);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: #7D26CD; /* vibrant purple for sections */
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+}
+.sec-header .sec-label { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+section { margin-bottom: 64px; }
+
+/* ── PIPELINE STATUS ── */
+.stage-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.stage-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid rgba(167, 139, 250, 0.15); /* purple border */
+  border-radius: 2px;
+  font-family: var(--font-head);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #7D26CD; /* vibrant purple */
+  background: rgba(8, 14, 24, 0.5);
+  transition: border-color 0.4s, color 0.4s;
+}
+.stage-pill.done { border-color: rgba(125, 38, 205, 0.35); color: #7D26CD; } 
+.stage-pill.active { border-color: rgba(125, 38, 205, 0.6); color: #7D26CD; text-shadow: 0 0 8px rgba(125, 38, 205, 0.4); } 
+.stage-dot { width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; }
+
+/* ── METRICS ── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 16px;
+  border-radius: 2px;
+}
+.metric-label { font-size: 8px; letter-spacing: 2px; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; }
+.metric-value { font-family: var(--font-head); font-size: 24px; font-weight: 700; color: var(--accent); }
+.metric-sub { font-size: 8px; color: #64748b; margin-top: 4px; }
+
+/* ── LOG ── */
+.log-panel {
+  background: rgba(2, 4, 8, 0.98);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  border-radius: 2px;
+  font-size: 11px;
+  line-height: 2;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+.log-panel::-webkit-scrollbar { width: 4px; }
+.log-panel::-webkit-scrollbar-track { background: transparent; }
+.log-panel::-webkit-scrollbar-thumb { background: rgba(96, 165, 250, 0.2); border-radius:2px; }
+.log-line { display:flex; gap:14px; }
+.log-time { color: #475569; min-width: 52px; flex-shrink:0; }
+.log-msg.ok   { color:#8b5cf6; }
+.log-msg.info { color:#60a5fa; }
+.log-msg.warn { color:#d97706; }
+.log-msg.run  { color:#a78bfa; }
+.log-msg.err  { color:#ef4444; }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-block;
+  padding: 12px 32px;
+  background: transparent;
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  border-radius: 2px;
+  color: var(--accent);
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.btn:hover { border-color: rgba(96, 165, 250, 0.65); color: #bfdbfe; background: rgba(96, 165, 250, 0.05); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.export-btn {
+  display: inline-block;
+  padding: 6px 16px;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 2px;
+  color: #c4b5fd;
+  font-family: var(--font-head);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.export-btn:hover { border-color: rgba(139, 92, 246, 0.6); color: #ddd6fe; background: rgba(139, 92, 246, 0.2); }
+
+/* ── FIGURES ── */
+.figures-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px,1fr));
+  gap: 16px;
+}
+
+.fig-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 18px;
+  position: relative;
+}
+
+.fig-title {
+  font-family: var(--font-head);
+  font-size: 8px;
+  letter-spacing: 3px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.fig-card canvas { display: block; width: 100% !important; }
+
+/* ── TOP 20 TABLE ── */
+.top20-wrap { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+thead tr { border-bottom: 1px solid rgba(96, 165, 250, 0.2); }
+
+th {
+  font-family: var(--font-head);
+  font-size: 7px;
+  letter-spacing: 2px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 400;
+}
+
+td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.05);
+  color: #e2e8f0;
+  vertical-align: middle;
+}
+
+tr:hover td { background: rgba(96, 165, 250, 0.04); }
+
+.rank-num {
+  font-family: var(--font-head);
+  font-size: 11px;
+  color: #64748b;
+}
+
+.tier-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.tier-1 { border: 1px solid rgba(139, 92, 246, 0.4); color: #c4b5fd; }
+.tier-2 { border: 1px solid rgba(96, 165, 250, 0.4); color: #93c5fd; }
+.tier-3 { border: 1px solid rgba(100, 116, 139, 0.4); color: #cbd5e1; }
+
+.score-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.score-bar-bg {
+  flex: 1;
+  height: 3px;
+  background: rgba(96, 165, 250, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  min-width: 60px;
+}
+.score-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 2px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition-delay: inherit;
+}
+.score-val {
+  font-family: var(--font-head);
+  font-size: 10px;
+  color: #93c5fd;
+  min-width: 36px;
+  text-align: right;
+}
+
+.accession-link {
+  color: #818cf8;
+  text-decoration: none;
+  font-size: 10px;
+}
+.accession-link:hover { color: #a5b4fc; }
+
+.stable-badge {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent2);
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+
+
+.corner-frame { position: relative; }
+.corner-frame::before, .corner-frame::after,
+.corner-frame > .cf-b::before, .corner-frame > .cf-b::after {
+  content:''; position:absolute; width:12px; height:12px; pointer-events:none; z-index:1;
+}
+.corner-frame::before { top:0; left:0; border-top:1px solid rgba(96,165,250,0.3); border-left:1px solid rgba(96,165,250,0.3); }
+.corner-frame::after  { top:0; right:0; border-top:1px solid rgba(96,165,250,0.3); border-right:1px solid rgba(96,165,250,0.3); }
+.corner-frame > .cf-b::before { bottom:0; left:0; border-bottom:1px solid rgba(96,165,250,0.3); border-left:1px solid rgba(96,165,250,0.3); }
+.corner-frame > .cf-b::after  { bottom:0; right:0; border-bottom:1px solid rgba(96,165,250,0.3); border-right:1px solid rgba(96,165,250,0.3); }
+
+.spinner {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border: 1px solid rgba(96,165,250,0.3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── ANIMATIONS (prefers-reduced-motion guard) ── */
+@media (prefers-reduced-motion: no-preference) {
+
+  /* 1. Hero entrance */
+  @keyframes hero-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes hero-up-sub {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 0.8; transform: translateY(0); }
+  }
+  .hero-title {
+    animation: hero-up 0.7s ease forwards;
+  }
+  .hero-sub {
+    opacity: 0;
+    animation: hero-up-sub 0.7s ease 0.15s forwards;
+  }
+
+  /* 2. Stage dot pulse */
+  @keyframes dot-pulse {
+    0%, 100% { transform: scale(1);   opacity: 1; }
+    50%       { transform: scale(1.5); opacity: 0.5; }
+  }
+  .stage-pill.active .stage-dot {
+    animation: dot-pulse 1.2s ease-in-out infinite;
+  }
+
+  /* 3. Log line fade-in */
+  @keyframes log-enter {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .log-enter {
+    animation: log-enter 0.18s ease forwards;
+  }
+
+  /* 4. Section reveal */
+  .section-reveal {
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  /* 5. Table row stagger */
+  @keyframes row-enter {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+}
+
+/* 4. Section hidden state (outside motion guard so it applies always) */
+.section-hidden {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+/* 6. Export button shake (global — only triggered by user interaction) */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-4px); }
+  40%       { transform: translateX(4px); }
+  60%       { transform: translateX(-3px); }
+  80%       { transform: translateX(3px); }
+}
+.export-btn.shake {
+  animation: shake 0.35s ease;
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ BACKGROUND CANVASES ══ -->
+<canvas id="star-canvas"></canvas>
+<canvas id="helix-canvas"></canvas>
+
+<!-- ══ HERO ══════════════════════════════════════════════════════════ -->
+<section id="hero">
+  <div class="hero-content">
+    <div class="hero-title">Listeria · Target Pipeline</div>
+    <div class="hero-sub">L. monocytogenes EGD-e &nbsp;·&nbsp; Drug Target Prediction</div>
+  </div>
+</section>
+
+<!-- ══ MAIN ═══════════════════════════════════════════════════════════ -->
+<main>
+
+  <!-- Pipeline Status -->
+  <section id="sec-status">
+    <div class="sec-label">01 &nbsp;·&nbsp; Pipeline Status</div>
+    <div class="stage-row" id="stages">
+      <div class="stage-pill" id="s0"><div class="stage-dot"></div>1. Fetch &amp; Process</div>
+      <div class="stage-pill" id="s1"><div class="stage-dot"></div>2. EDA</div>
+      <div class="stage-pill" id="s2"><div class="stage-dot"></div>3. Features</div>
+      <div class="stage-pill" id="s3"><div class="stage-dot"></div>4. ML Model</div>
+      <div class="stage-pill" id="s4"><div class="stage-dot"></div>5. Monte Carlo</div>
+      <div class="stage-pill" id="s5"><div class="stage-dot"></div>6. Ranking</div>
+      <div class="stage-pill" id="s6"><div class="stage-dot"></div>7. Output</div>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="metric-label">Proteins</div><div class="metric-value" id="m-prot">—</div><div class="metric-sub">from UniProt</div></div>
+      <div class="metric-card"><div class="metric-label">Features</div><div class="metric-value" id="m-feat">11</div><div class="metric-sub">physicochemical</div></div>
+      <div class="metric-card"><div class="metric-label">CV AUC</div><div class="metric-value" id="m-auc">—</div><div class="metric-sub">5-fold ROC-AUC</div></div>
+      <div class="metric-card"><div class="metric-label">MC Runs</div><div class="metric-value">1 000</div><div class="metric-sub">weight samples</div></div>
+      <div class="metric-card"><div class="metric-label">Tier 1</div><div class="metric-value" id="m-t1">—</div><div class="metric-sub">high priority</div></div>
+      <div class="metric-card"><div class="metric-label">Tier 2</div><div class="metric-value" id="m-t2">—</div><div class="metric-sub">medium priority</div></div>
+    </div>
+    <div class="log-panel" id="log-panel">
+      <div class="log-line"><span class="log-time">00:00</span><span class="log-msg info">System ready — click Run Pipeline to begin.</span></div>
+    </div>
+    <button class="btn" id="run-btn" onclick="runPipeline()">⌬ &nbsp; Run Pipeline</button>
+  </section>
+
+  <!-- Figures -->
+  <section id="sec-figures">
+    <div class="sec-label">02 &nbsp;·&nbsp; Analysis Figures</div>
+    <div class="figures-grid">
+      <div class="fig-card">
+        <div class="fig-title">A · Protein Length Distribution</div>
+        <canvas id="fig-length" height="200"></canvas>
+      </div>
+      <div class="fig-card">
+        <div class="fig-title">B · Annotation Coverage</div>
+        <canvas id="fig-annot" height="200"></canvas>
+      </div>
+      <div class="fig-card">
+        <div class="fig-title">C · RF Feature Importances</div>
+        <canvas id="fig-importance" height="200"></canvas>
+      </div>
+      <div class="fig-card">
+        <div class="fig-title">D · Cross-Validation AUC per Fold</div>
+        <canvas id="fig-cv" height="200"></canvas>
+      </div>
+      <div class="fig-card">
+        <div class="fig-title">E · Priority Tier Distribution</div>
+        <canvas id="fig-tier" height="200"></canvas>
+      </div>
+      <div class="fig-card">
+        <div class="fig-title">F · Monte Carlo Tier 1 Frequency</div>
+        <canvas id="fig-mc" height="200"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Top 20 -->
+  <section id="sec-top20">
+    <div class="sec-header">
+      <div class="sec-label">03 &nbsp;·&nbsp; Top 20 Drug Target Candidates</div>
+      <button class="export-btn" onclick="exportCSV()">↓ Export CSV</button>
+    </div>
+    <div class="top20-wrap corner-frame">
+      <div class="cf-b"></div>
+      <table id="top20-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Accession</th>
+            <th>Gene</th>
+            <th>Protein</th>
+            <th>Composite Score</th>
+            <th>Druggability</th>
+            <th>Conservation</th>
+            <th>Tier</th>
+            <th>MC Stable</th>
+          </tr>
+        </thead>
+        <tbody id="top20-body">
+          <tr><td colspan="9" style="text-align:center; color:#64748b; padding:32px;">Run pipeline to populate results.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// STARS
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const c = document.getElementById('star-canvas');
+  const ctx = c.getContext('2d');
+  function resize() { c.width = window.innerWidth; c.height = window.innerHeight; drawStars(); }
+  function drawStars() {
+    ctx.clearRect(0,0,c.width,c.height);
+    const rng = (a,b) => a + Math.random()*(b-a);
+    for (let i=0;i<160;i++) {
+      const r = rng(0.3, 1.4);
+      ctx.beginPath();
+      ctx.arc(rng(0,c.width), rng(0,c.height), r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(147, 197, 253, ${rng(0.05, 0.4).toFixed(2)})`;
+      ctx.fill();
+    }
+  }
+  window.addEventListener('resize', resize);
+  resize();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// DNA HELIX — performant, zero-shadowBlur, scroll-driven
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('helix-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  // Force GPU compositing layer
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize, { passive: true });
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  let scrollPhase  = 0;
+  let targetScroll = 0;
+  let time         = 0;
+
+  // Pre-allocated arrays — no GC pressure each frame
+  const NPTS = 80;
+  const xs0  = new Float32Array(NPTS + 1);
+  const ys0  = new Float32Array(NPTS + 1);
+  const zs0  = new Float32Array(NPTS + 1);
+  const xs1  = new Float32Array(NPTS + 1);
+  const ys1  = new Float32Array(NPTS + 1);
+  const zs1  = new Float32Array(NPTS + 1);
+
+  function draw(phase) {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    const cx   = W / 2;
+    const AMP  = Math.min(W * 0.14, 130);   // narrower = cleaner DNA look
+    const FREQ = 2.6;
+    const RUNG_EVERY = 6;                    // ~13 rungs visible
+
+    // Fill pre-allocated position arrays (no object allocation)
+    for (let i = 0; i <= NPTS; i++) {
+      const t = i / NPTS;
+      const y = t * H;
+      const a = t * FREQ * Math.PI * 2 + phase;
+      const sa = Math.sin(a), ca = Math.cos(a);
+      xs0[i] = cx + sa * AMP;  ys0[i] = y;  zs0[i] =  ca;
+      xs1[i] = cx - sa * AMP;  ys1[i] = y;  zs1[i] = -ca;
+    }
+
+    // ── PASS 1: draw BACK portions (z < 0) of both strands ──
+    // ── PASS 2: draw FRONT portions (z ≥ 0) of both strands ──
+    // No sort needed — just two sequential passes.
+
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap  = 'round';
+    ctx.lineJoin = 'round';
+
+    // Helper: draw one strand for a given depth range in 3 layers (glow effect)
+    // Layer order: wide+dim → medium+moderate → thin+bright (no shadowBlur)
+    function drawStrand(xs, ys, zs, front) {
+      // Layer definitions: [lineWidth, alphaMultiplier]
+      const layers = front
+        ? [[14, 0.04], [6, 0.18], [2.0, 0.85]]   // front: bright neon tube
+        : [[ 6, 0.02], [3, 0.06], [1.2, 0.25]];  // back: dim ghost
+
+      for (const [lw, am] of layers) {
+        let inPath = false;
+        ctx.beginPath();
+        for (let i = 0; i <= NPTS; i++) {
+          const isFront = zs[i] >= 0;
+          if (isFront !== front) { inPath = false; continue; }
+          if (!inPath) { ctx.moveTo(xs[i], ys[i]); inPath = true; }
+          else          ctx.lineTo(xs[i], ys[i]);
+        }
+        ctx.lineWidth   = lw;
+        // Front: bright cyan. Back: dim teal.
+        ctx.strokeStyle = front
+          ? `rgba(0,210,255,${am})`
+          : `rgba(0,140,190,${am})`;
+        ctx.stroke();
+      }
+    }
+
+    // Back halves first (z < 0)
+    drawStrand(xs0, ys0, zs0, false);
+    drawStrand(xs1, ys1, zs1, false);
+
+    // Rungs (drawn in between for depth feel)
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(0,180,230,0.35)';
+    for (let i = RUNG_EVERY; i < NPTS; i += RUNG_EVERY) {
+      const dx = Math.abs(xs0[i] - xs1[i]);
+      if (dx < AMP * 0.25) continue;   // skip edge-on rungs
+      ctx.beginPath();
+      ctx.moveTo(xs0[i], ys0[i]);
+      ctx.lineTo(xs1[i], ys1[i]);
+      ctx.stroke();
+    }
+
+    // Front halves on top
+    drawStrand(xs0, ys0, zs0, true);
+    drawStrand(xs1, ys1, zs1, true);
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.lineCap  = 'butt';
+    ctx.lineJoin = 'miter';
+  }
+
+  function loop() {
+    time++;
+    scrollPhase += (targetScroll - scrollPhase) * 0.06; // responsive but smooth
+    draw(scrollPhase + time * 0.004);
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  window.addEventListener('scroll', () => {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    targetScroll = max > 0 ? (window.scrollY / max) * Math.PI * 5 : 0;
+  }, { passive: true });
+})();
+
+// ═══════════════════════════════════════════════════════════
+// CHART.JS DEFAULTS (Muted aesthetic)
+// ═══════════════════════════════════════════════════════════
+Chart.defaults.color = '#64748b';
+Chart.defaults.font.family = "'Share Tech Mono', monospace";
+Chart.defaults.font.size = 10;
+Chart.defaults.plugins.legend.labels.color = '#94a3b8';
+
+const CHART_GRID = { color: 'rgba(96, 165, 250, 0.08)', borderColor: 'rgba(96, 165, 250, 0.15)' };
+const CHART_TICK = { color: 'rgba(100, 116, 139, 0.6)' };
+
+let charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ═══════════════════════════════════════════════════════════
+// DATA RENDERERS — derive charts from actual backend payload
+// Backend sends: total_proteins, cv_auc_mean, tier_counts (dict), top20 (array)
+// top20 keys: accession, gene_name, protein_name, length, conservation,
+//             druggability, composite, priority_tier, has_structure,
+//             subcellular_location, mc_rank_stable
+// ═══════════════════════════════════════════════════════════
+function renderFigures(data) {
+  const rows = data.top20 || [];
+
+  // ── A: Composite Score distribution across Top 20 ──────────────────────────
+  destroyChart('fig-length');
+  charts['fig-length'] = new Chart(document.getElementById('fig-length'), {
+    type: 'bar',
+    data: {
+      labels: rows.map((r,i) => r.gene_name || r.accession || `#${i+1}`),
+      datasets:[{ label:'Composite Score', data: rows.map(r => +(r.composite||0).toFixed(3)),
+        backgroundColor:'rgba(96,165,250,0.4)', borderColor:'rgba(96,165,250,0.7)', borderWidth:1 }]
+    },
+    options:{ plugins:{legend:{display:false}}, scales:{
+      x:{grid:CHART_GRID, ticks:{...CHART_TICK, maxRotation:0, minRotation:0, font:{size:8}}},
+      y:{grid:CHART_GRID, ticks:CHART_TICK, min:0, max:1, title:{display:true,text:'Composite Score',color:'#64748b'}}
+    }}
+  });
+
+  // ── B: Druggability vs Conservation scatter (as dual bar) ──────────────────
+  destroyChart('fig-annot');
+  charts['fig-annot'] = new Chart(document.getElementById('fig-annot'), {
+    type:'bar',
+    data:{
+      labels: rows.map((r,i) => r.gene_name || r.accession || `#${i+1}`),
+      datasets:[
+        {label:'Druggability',data:rows.map(r=>+(r.druggability||0).toFixed(3)),
+          backgroundColor:'rgba(96,165,250,0.45)',borderColor:'rgba(96,165,250,0.8)',borderWidth:1},
+        {label:'Conservation',data:rows.map(r=>+(r.conservation||0).toFixed(3)),
+          backgroundColor:'rgba(139,92,246,0.4)',borderColor:'rgba(139,92,246,0.7)',borderWidth:1},
+      ]
+    },
+    options:{plugins:{legend:{position:'top',labels:{color:'#94a3b8',font:{size:9}}}}, scales:{
+      x:{grid:CHART_GRID, ticks:{...CHART_TICK, maxRotation:0, minRotation:0, font:{size:8}}},
+      y:{grid:CHART_GRID, ticks:CHART_TICK, min:0, max:1}
+    }}
+  });
+
+  // ── C: MC-stable vs not (horizontal bar showing count) ────────────────────
+  destroyChart('fig-importance');
+  const stableCount    = rows.filter(r => r.mc_rank_stable).length;
+  const unstableCount  = rows.length - stableCount;
+  charts['fig-importance'] = new Chart(document.getElementById('fig-importance'), {
+    type:'doughnut',
+    data:{
+      labels:['MC Stable (≥80%)', 'Not Stable'],
+      datasets:[{data:[stableCount, unstableCount],
+        backgroundColor:['rgba(139,92,246,0.55)','rgba(71,85,105,0.4)'],
+        borderColor:['rgba(139,92,246,0.9)','rgba(71,85,105,0.7)'],
+        borderWidth:1}]
+    },
+    options:{plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:9}}},
+      title:{display:true,text:'Top-20 MC Stability',color:'#64748b',font:{size:10}}}}
+  });
+
+  // ── D: CV AUC per fold ────────────────────────────────────────────────────
+  destroyChart('fig-cv');
+  const auc    = data.cv_auc_mean  || 0;
+  const aucStd = data.cv_auc_std   || 0;
+  const folds  = data.cv_fold_scores; // array or undefined
+  if (folds && folds.length) {
+    const labels  = folds.map((_,i) => `Fold ${i+1}`);
+    const values  = folds.map(v => v !== null ? v : 0);
+    const colors  = folds.map(v => v !== null
+      ? 'rgba(96,165,250,0.5)' : 'rgba(71,85,105,0.3)');
+    const borders = folds.map(v => v !== null
+      ? 'rgba(96,165,250,0.9)' : 'rgba(71,85,105,0.5)');
+    charts['fig-cv'] = new Chart(document.getElementById('fig-cv'), {
+      type:'bar',
+      data:{
+        labels,
+        datasets:[{label:'ROC-AUC',data:values,
+          backgroundColor:colors,borderColor:borders,borderWidth:1}]
+      },
+      options:{
+        plugins:{legend:{display:false},
+          title:{display:true,text:`Mean AUC (valid folds): ${auc.toFixed ? auc.toFixed(3) : auc}`,
+            color:'#94a3b8',font:{size:9}}},
+        scales:{
+          x:{grid:CHART_GRID, ticks:CHART_TICK},
+          y:{grid:CHART_GRID, ticks:CHART_TICK, min:0, max:1,
+            title:{display:true,text:'ROC-AUC',color:'#64748b'}}
+        }
+      }
+    });
+  } else {
+    charts['fig-cv'] = new Chart(document.getElementById('fig-cv'), {
+      type:'bar',
+      data:{
+        labels:['Mean AUC','± Std Dev'],
+        datasets:[{label:'Score',data:[auc,aucStd],
+          backgroundColor:['rgba(96,165,250,0.45)','rgba(139,92,246,0.35)'],
+          borderColor:['rgba(96,165,250,0.8)','rgba(139,92,246,0.7)'],borderWidth:1}]
+      },
+      options:{plugins:{legend:{display:false}}, scales:{
+        x:{grid:CHART_GRID, ticks:CHART_TICK},
+        y:{grid:CHART_GRID, ticks:CHART_TICK, min:0, max:1,
+          title:{display:true,text:'Score',color:'#64748b'}}
+      }}
+    });
+  }
+
+  // ── E: Priority Tier Distribution ─────────────────────────────────────────
+  destroyChart('fig-tier');
+  const tc = data.tier_counts || {};
+  
+  // Sort so Tier 1 is first, Tier 2, Tier 3. Also assign specific colors.
+  const mappedData = [];
+  Object.keys(tc).forEach(key => {
+    let sortIdx = 2; // default Tier 3
+    if (key.includes('1')) sortIdx = 0;
+    else if (key.includes('2')) sortIdx = 1;
+    mappedData.push({ label: key.replace(' —', ':'), val: tc[key], sortIdx });
+  });
+  mappedData.sort((a,b) => a.sortIdx - b.sortIdx);
+  
+  const tierLabels = mappedData.map(d => d.label);
+  const tierVals   = mappedData.map(d => d.val);
+  
+  // Vibrant colors for the bars
+  const bgColors = [
+    'rgba(192, 132, 252, 0.65)', // Tier 1
+    'rgba(96, 165, 250, 0.65)',  // Tier 2
+    'rgba(139, 92, 246, 0.4)'    // Tier 3
+  ];
+  const borderColors = [
+    'rgba(192, 132, 252, 1)', 
+    'rgba(96, 165, 250, 1)',  
+    'rgba(139, 92, 246, 0.8)'
+  ];
+  
+  charts['fig-tier'] = new Chart(document.getElementById('fig-tier'), {
+    type: 'bar',
+    data: {
+      labels: tierLabels,
+      datasets: [{
+        data: tierVals,
+        backgroundColor: bgColors,
+        borderColor: borderColors,
+        borderWidth: 1,
+        barThickness: 24
+      }]
+    },
+    options: {
+      indexAxis: 'y', // horizontal bar chart
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(8,14,24,0.95)',
+          titleFont: { family: 'Syncopate', size: 10 },
+          bodyFont: { family: 'Share Tech Mono', size: 12 },
+          borderColor: 'rgba(139,92,246,0.3)',
+          borderWidth: 1
+        }
+      },
+      scales: {
+        x: {
+          type: 'logarithmic', // log scale so 1 and 493 are both highly visible
+          grid: CHART_GRID,
+          ticks: { ...CHART_TICK, minRotation: 0, maxRotation: 0, callback: function(val) { return Number.isInteger(val) ? val : null; } },
+          title: { display: true, text: 'Protein Count (Log Scale)', color: '#64748b', font: { size: 9 } }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: '#cbd5e1', font: { size: 9, family: 'Share Tech Mono' } }
+        }
+      }
+    }
+  });
+
+  // ── F: Top 20 protein lengths ─────────────────────────────────────────────
+  destroyChart('fig-mc');
+  charts['fig-mc'] = new Chart(document.getElementById('fig-mc'), {
+    type:'bar',
+    data:{
+      labels: rows.map((r,i) => r.gene_name || r.accession || `#${i+1}`),
+      datasets:[{label:'Length (aa)',data:rows.map(r=>r.length||0),
+        backgroundColor:'rgba(96,165,250,0.35)',borderColor:'rgba(96,165,250,0.6)',borderWidth:1}]
+    },
+    options:{
+      plugins:{legend:{display:false},
+        title:{display:true,text:'Protein Length of Top 20 Candidates',color:'#64748b',font:{size:9}}},
+      scales:{
+        x:{grid:CHART_GRID, ticks:{...CHART_TICK, maxRotation:45, font:{size:8}}},
+        y:{grid:CHART_GRID, ticks:CHART_TICK, title:{display:true,text:'Amino Acids',color:'#64748b'}}
+      }
+    }
+  });
+}
+
+function renderTop20(rows) {
+  const tbody = document.getElementById('top20-body');
+  tbody.innerHTML = '';
+  rows.forEach((r, i) => {
+    // Backend renames: composite_target_score → composite, druggability_proba → druggability, conservation_score → conservation
+    const tierRaw   = r.priority_tier || '';
+    const tierClass = tierRaw.includes('1') ? 'tier-1' : tierRaw.includes('2') ? 'tier-2' : 'tier-3';
+    const tierShort = tierRaw.includes('1') ? 'Tier 1' : tierRaw.includes('2') ? 'Tier 2' : 'Tier 3';
+    const composite = r.composite  != null ? r.composite  : 0;
+    const drugg     = r.druggability != null ? r.druggability : 0;
+    const consv     = r.conservation != null ? r.conservation : 0;
+    const isStable  = !!r.mc_rank_stable;
+    const scoreW    = Math.min(100, (composite * 100)).toFixed(0);
+
+    const tr = document.createElement('tr');
+    tr.style.animation = 'row-enter 0.22s ease forwards';
+    tr.style.animationDelay = (i * 18) + 'ms';
+    tr.style.opacity = '0';
+    tr.innerHTML = `
+      <td><span class="rank-num">${String(i+1).padStart(2,'0')}</span></td>
+      <td><a class="accession-link" href="https://www.uniprot.org/uniprotkb/${r.accession}" target="_blank">${r.accession}</a></td>
+      <td style="color:#94a3b8">${r.gene_name || '—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${r.protein_name || '—'}</td>
+      <td>
+        <div class="score-bar-wrap">
+          <div class="score-bar-bg"><div class="score-bar-fill" style="width:0%;transition-delay:${(i*18)+220}ms"></div></div>
+          <span class="score-val">${composite.toFixed(3)}</span>
+        </div>
+      </td>
+      <td style="font-family:var(--font-head);font-size:10px;color:var(--accent)">${drugg.toFixed(3)}</td>
+      <td style="font-family:var(--font-head);font-size:10px;color:var(--accent2)">${consv.toFixed(3)}</td>
+      <td><span class="tier-badge ${tierClass}">${tierShort}</span></td>
+      <td>${isStable ? '<span class="stable-badge"></span>Yes' : '<span style="color:#475569">—</span>'}</td>
+    `;
+    tbody.appendChild(tr);
+    requestAnimationFrame(() => {
+      const fill = tr.querySelector('.score-bar-fill');
+      if (fill) fill.style.width = scoreW + '%';
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// PIPELINE LOGIC
+// ═══════════════════════════════════════════════════════════
+let pipelineResults = null;
+const stagePills = ['s0','s1','s2','s3','s4','s5','s6'].map(id=>document.getElementById(id));
+const logPanel = document.getElementById('log-panel');
+
+// ── Section scroll reveal (IntersectionObserver) ─────────────────────────────
+(function initSectionReveal() {
+  const sections = document.querySelectorAll('main > section');
+  if (!window.IntersectionObserver) return;
+  sections.forEach((sec, i) => {
+    sec.classList.add('section-hidden', 'section-reveal');
+    sec.style.transitionDelay = (i * 60) + 'ms';
+  });
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.remove('section-hidden');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.08 });
+  sections.forEach(sec => io.observe(sec));
+})();
+
+function setStage(idx, state) {
+  stagePills[idx].className = 'stage-pill' + (state ? ' '+state : '');
+  // Advance next pill to 'active' when current goes 'done'
+  if (state === 'done' && idx + 1 < stagePills.length) {
+    if (!stagePills[idx + 1].classList.contains('done')) {
+      stagePills[idx + 1].className = 'stage-pill active';
+    }
+  }
+}
+function addLog(time, cls, msg) {
+  const div = document.createElement('div');
+  div.className = 'log-line log-enter';
+  div.innerHTML = `<span class="log-time">${time}</span><span class="log-msg ${cls}">${msg}</span>`;
+  logPanel.appendChild(div);
+  logPanel.scrollTop = logPanel.scrollHeight;
+}
+function setMetric(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const num = parseFloat(val);
+  if (isNaN(num)) { el.textContent = val; return; }
+  const isDecimal = String(val).includes('.');
+  const decimals  = isDecimal ? String(val).split('.')[1].length : 0;
+  const start = performance.now();
+  const duration = 800;
+  function tick(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const current = eased * num;
+    el.textContent = isDecimal ? current.toFixed(decimals) : Math.round(current);
+    if (t < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function getTimestamp() {
+  const d = new Date();
+  return d.toTimeString().split(' ')[0].substring(3);
+}
+
+function runPipeline() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Running...';
+  logPanel.innerHTML = '';
+  
+  stagePills.forEach(p => p.className = 'stage-pill');
+  pipelineResults = null;
+
+  const isFile = window.location.protocol === 'file:';
+  const proto = isFile ? 'ws:' : (window.location.protocol === 'https:' ? 'wss:' : 'ws:');
+  const host = isFile ? 'localhost:8000' : window.location.host;
+  const wsUrl = `${proto}//${host}/ws/pipeline`;
+  
+  let ws;
+  try {
+    ws = new WebSocket(wsUrl);
+  } catch (err) {
+    addLog(getTimestamp(), 'err', `Failed to connect to ${wsUrl}. Is the FastAPI server running?`);
+    btn.disabled = false;
+    btn.innerHTML = '⌬ &nbsp; Run Pipeline';
+    return;
+  }
+
+  ws.onopen = () => {
+     addLog(getTimestamp(), 'info', 'WebSocket connected. Initiating pipeline...');
+     ws.send(JSON.stringify({ output_csv: 'listeria_final_results.csv' }));
+  };
+  
+  ws.onmessage = (event) => {
+     const safeData = event.data.replace(/\bNaN\b/g, "null");
+     const msg = JSON.parse(safeData);
+     if (msg.type === 'log') {
+        let cls = 'info';
+        if (msg.data.toLowerCase().includes('error') || msg.data.toLowerCase().includes('failed')) cls = 'err';
+        else if (msg.data.includes('complete') || msg.data.includes('done') || msg.data.includes('saved')) cls = 'ok';
+        else if (msg.data.includes('...')) cls = 'run';
+        
+        if (msg.data.includes('Stage 1 complete')) setStage(0, 'done');
+        if (msg.data.includes('Stage 2 complete')) setStage(1, 'done');
+        if (msg.data.includes('Stage 3 complete')) setStage(2, 'done');
+        if (msg.data.includes('Stage 4 complete')) setStage(3, 'done');
+        if (msg.data.includes('Stage 5 complete')) setStage(4, 'done');
+        if (msg.data.includes('Stage 6 complete')) setStage(5, 'done');
+
+        addLog(getTimestamp(), cls, msg.data);
+     } 
+     else if (msg.type === 'result') {
+        setStage(6, 'done');
+        pipelineResults = msg.data;
+        
+        setMetric('m-prot', msg.data.total_proteins);
+        setMetric('m-auc', msg.data.cv_auc_mean !== null ? msg.data.cv_auc_mean.toFixed(3) : 'N/A');
+        // tier_counts is a dict e.g. {'Tier 1 — High Priority': 18, ...}
+        const tc = msg.data.tier_counts || {};
+        const tcVals = Object.values(tc);
+        setMetric('m-t1', tcVals[0] ?? '—');
+        setMetric('m-t2', tcVals[1] ?? '—');
+        
+        renderFigures(msg.data);
+        renderTop20(msg.data.top20);
+        
+        btn.innerHTML = '⌬ &nbsp; Pipeline Complete';
+     } 
+     else if (msg.type === 'error') {
+        addLog(getTimestamp(), 'err', msg.data);
+        btn.disabled = false;
+        btn.innerHTML = '⌬ &nbsp; Run Pipeline';
+     }
+  };
+  
+  ws.onclose = () => {
+     if (!pipelineResults) {
+        btn.disabled = false;
+        btn.innerHTML = '⌬ &nbsp; Run Pipeline';
+        addLog(getTimestamp(), 'warn', 'Connection closed before pipeline completion.');
+     }
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+// CSV EXPORT
+// ═══════════════════════════════════════════════════════════
+function exportCSV() {
+  if (!pipelineResults || !pipelineResults.top20) {
+      const exportBtn = document.querySelector('.export-btn');
+      exportBtn.classList.add('shake');
+      exportBtn.addEventListener('animationend', () => {
+        exportBtn.classList.remove('shake');
+      }, { once: true });
+      return;
+  }
+  const rows = pipelineResults.top20;
+  const header = ['Accession', 'Gene', 'Protein', 'Length', 'Conservation', 'Druggability', 'Composite Score', 'Tier', 'MC Stable'];
+  
+  const csvContent = [
+      header.join(','),
+      ...rows.map(r => {
+          // Backend renames fields: composite_target_score→composite, druggability_proba→druggability, conservation_score→conservation
+          const comp  = r.composite   != null ? r.composite   : 0;
+          const drugg = r.druggability != null ? r.druggability : 0;
+          const consv = r.conservation != null ? r.conservation : 0;
+          const isStable = !!r.mc_rank_stable;
+          
+          return [
+              r.accession,
+              `"${(r.gene_name || '').replace(/"/g, '""')}"`,
+              `"${(r.protein_name || '').replace(/"/g, '""')}"`,
+              r.length || '',
+              consv,
+              drugg,
+              comp,
+              r.priority_tier || '',
+              isStable ? 'Yes' : 'No'
+          ].join(',');
+      })
+  ].join('\n');
+  
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'listeria_top20_targets.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
