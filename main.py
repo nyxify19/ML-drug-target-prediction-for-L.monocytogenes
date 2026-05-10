@@ -1,22 +1,4 @@
-"""
-main.py
-───────
-FastAPI web service for the L. monocytogenes drug-target prediction pipeline.
 
-Endpoints
-─────────
-POST /run-pipeline             – submit pipeline as REST background task
-GET  /status/{job_id}          – poll job status / results
-GET  /results/{job_id}         – download CSV
-WS   /ws/pipeline              – WebSocket: streams live logs + final JSON result
-GET  /health                   – liveness probe
-GET  /docs                     – Swagger UI
-
-Windows note
-────────────
-Always start with:  python main.py
-Never with:         uvicorn main:app --reload  (breaks multiprocessing on Windows)
-"""
 
 import asyncio
 import json
@@ -44,7 +26,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# ── Globals (initialised in lifespan) ────────────────────────────────────────
+# Globals (initialised in lifespan) 
 _mp_manager = None   # multiprocessing.Manager() instance, set in lifespan
 _executor: Optional[ProcessPoolExecutor] = None
 
@@ -62,7 +44,7 @@ async def lifespan(app: FastAPI):
     log.info("Process pool shut down.")
 
 
-# ── FastAPI app ───────────────────────────────────────────────────────────────
+# FastAPI app
 app = FastAPI(
     title="L. monocytogenes Drug-Target Prediction API",
     description=(
@@ -90,7 +72,7 @@ app.mount("/static", StaticFiles(directory=_HERE), name="static")
 async def serve_index():
     return FileResponse(_os.path.join(_HERE, "index.html"))
 
-# ── Job store ─────────────────────────────────────────────────────────────────
+# Job store 
 class JobStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -112,7 +94,7 @@ class JobRecord(BaseModel):
 JOBS: dict[str, JobRecord] = {}
 
 
-# ── Schemas ───────────────────────────────────────────────────────────────────
+#  Schemas 
 class RunPipelineRequest(BaseModel):
     output_csv: str = "listeria_final_results.csv"
 
@@ -123,7 +105,7 @@ class JobSubmittedResponse(BaseModel):
     status:  JobStatus
 
 
-# ── Helper: run pipeline in a worker process, forwarding queue → async queue ──
+# Helper: run pipeline in a worker process, forwarding queue → async queue 
 
 def _worker(mp_queue, output_csv: str) -> dict:
     """Runs in ProcessPoolExecutor; imports are local to the worker."""
@@ -150,7 +132,7 @@ async def _drain_mp_queue_to_async(mp_queue, async_queue: asyncio.Queue) -> None
             await asyncio.sleep(0.05)
 
 
-# ── WebSocket endpoint ────────────────────────────────────────────────────────
+# WebSocket endpoint 
 
 @app.websocket("/ws/pipeline")
 async def ws_pipeline(websocket: WebSocket):
@@ -245,7 +227,7 @@ async def ws_pipeline(websocket: WebSocket):
         pass
 
 
-# ── REST endpoints (unchanged from v1) ───────────────────────────────────────
+# REST endpoints (unchanged from v1) 
 
 def _run_pipeline_in_process(job_id: str, output_csv: str) -> dict:
     from pipeline_core import run_full_pipeline  # noqa
@@ -320,7 +302,7 @@ async def list_jobs():
     ]
 
 
-# ── Entrypoint ────────────────────────────────────────────────────────────────
+# Entrypoint 
 if __name__ == "__main__":
     # The `if __name__` guard is REQUIRED on Windows so that spawned
     # worker processes do not re-execute this block and fork infinitely.
