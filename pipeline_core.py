@@ -1,10 +1,3 @@
-"""
-pipeline_core.py
-────────────────
-All pipeline logic extracted from AI_AND_DS_PROJECT_FINAL_ISH.ipynb.
-Matplotlib is set to a non-interactive backend so it works headlessly.
-"""
-
 import logging
 import os
 import random
@@ -37,7 +30,7 @@ from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings("ignore")
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# Logging 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(message)s",
@@ -45,7 +38,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# ── Constants ────────────────────────────────────────────────────────────────
+# Constants 
 TIER1_THRESHOLD = 0.7
 TIER2_THRESHOLD = 0.5
 
@@ -71,7 +64,7 @@ random.seed(42)
 np.random.seed(42)
 
 
-# ── 1-3. Data Collection, Processing & Cleaning ──────────────────────────────
+# 1-3. Data Collection, Processing & Cleaning 
 
 def fetch_listeria_proteome() -> list:
     params = {
@@ -185,7 +178,7 @@ def add_feature_flags(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ── 4-7. Physicochemical Features & Conservation ─────────────────────────────
+# 4-7. Physicochemical Features & Conservation 
 
 def calculate_molecular_weight(sequence: str) -> float:
     aa_masses = {
@@ -335,7 +328,7 @@ CONSERVATION_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "c
 def add_conservation_scores(df: pd.DataFrame) -> pd.DataFrame:
     import json as _json
 
-    # ── Try loading pre-computed scores from cache (instant!) ────────────
+    # Try loading pre-computed scores from cache (instant!) 
     if os.path.exists(CONSERVATION_CACHE):
         with open(CONSERVATION_CACHE, "r") as fh:
             cached: dict = _json.load(fh)
@@ -349,7 +342,7 @@ def add_conservation_scores(df: pd.DataFrame) -> pd.DataFrame:
         df["conservation_score"].fillna(0.5, inplace=True)
         return df
 
-    # ── No cache → fall back to live ClustalOmega alignment ─────────────
+    #  No cache → fall back to live ClustalOmega alignment 
     log.info("No conservation_cache.json found — running live ClustalOmega alignment...")
     scores = compute_clustal_conservation(df)
     df = df.copy()
@@ -358,7 +351,7 @@ def add_conservation_scores(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ── 8-9. Model ───────────────────────────────────────────────────────────────
+# 8-9. Model 
 
 def _prepare_X(df: pd.DataFrame) -> pd.DataFrame:
     X = df[FEATURE_COLS].copy()
@@ -410,7 +403,7 @@ def build_and_evaluate_model(df: pd.DataFrame):
     return df, model, cv_scores, importances, y_pred_cv, y
 
 
-# ── 10-14. Scoring, Sensitivity & Ranking ────────────────────────────────────
+# 10-14. Scoring, Sensitivity & Ranking 
 
 def compute_target_score(row, weights=None) -> float:
     w = weights or COMPOSITE_WEIGHTS
@@ -472,7 +465,7 @@ def run_monte_carlo_sensitivity(df: pd.DataFrame, n_samples=MC_N_SAMPLES, alpha=
     return df
 
 
-# ── Streaming pipeline (WebSocket-aware) ─────────────────────────────────────
+# Streaming pipeline (WebSocket-aware) 
 
 class _QueueLogHandler(logging.Handler):
     """Forwards every log record as a plain string into a multiprocessing.Queue."""
@@ -502,7 +495,7 @@ def run_pipeline_streaming(queue, output_csv: str = "listeria_final_results.csv"
     logging.getLogger().addHandler(handler)
 
     try:
-        # ── Step 1 ──────────────────────────────────────────────────────────
+        # Step 1 
         queue.put_nowait("[1/8] Fetching L. monocytogenes proteome from UniProt...")
         raw_data       = fetch_listeria_proteome()
 
@@ -514,14 +507,14 @@ def run_pipeline_streaming(queue, output_csv: str = "listeria_final_results.csv"
         proteins_clean = assign_length_druggability(proteins_clean)
         proteins_clean = add_feature_flags(proteins_clean)
 
-        # ── Step 2 ──────────────────────────────────────────────────────────
+        # Step 2 
         queue.put_nowait("[4/8] Computing physicochemical features (MW, pI, hydropathy, aromaticity, instability)...")
         proteins_clean = add_physicochemical_features(proteins_clean)
 
         queue.put_nowait("[5/8] Running ClustalOmega multiple-sequence alignment for conservation scores...")
         proteins_clean = add_conservation_scores(proteins_clean)
 
-        # ── Step 3 ──────────────────────────────────────────────────────────
+        # Step 3 
         queue.put_nowait("[6/8] Training PU-learning / Random Forest druggability model (5-fold CV)...")
         proteins_clean, model, cv_scores, importances, y_pred_cv, y = build_and_evaluate_model(proteins_clean)
         queue.put_nowait(
@@ -529,13 +522,13 @@ def run_pipeline_streaming(queue, output_csv: str = "listeria_final_results.csv"
             f"| Folds: {', '.join(f'{s:.3f}' if not np.isnan(s) else 'N/A' for s in cv_scores)}"
         )
 
-        # ── Step 4 ──────────────────────────────────────────────────────────
+        # Step 4
         queue.put_nowait("[7/8] Running Monte-Carlo sensitivity analysis (1 000 weight draws)...")
         proteins_clean["composite_target_score"] = proteins_clean.apply(compute_target_score, axis=1)
         proteins_clean["priority_tier"]          = proteins_clean["composite_target_score"].apply(assign_tier)
         proteins_clean = run_monte_carlo_sensitivity(proteins_clean)
 
-        # ── Step 5 ──────────────────────────────────────────────────────────
+        # Step 5 
         queue.put_nowait("[8/8] Ranking targets and writing results CSV...")
         proteins_final, tier_counts, top20 = rank_targets(proteins_clean)
         proteins_final.to_csv(output_csv, index=False)
@@ -571,7 +564,7 @@ def run_pipeline_streaming(queue, output_csv: str = "listeria_final_results.csv"
         logging.getLogger().removeHandler(handler)
 
 
-# ── Legacy (non-streaming) entry-point kept for REST /run-pipeline ────────────
+# Legacy (non-streaming) entry-point kept for REST /run-pipeline 
 
 def run_full_pipeline(output_csv: str = "listeria_final_results.csv") -> dict:
     """Blocking pipeline used by the REST background-task endpoint."""
