@@ -1,0 +1,23 @@
+# fly.toml — L. monocytogenes Drug Target Prediction Pipeline
+# Place this file in the root of your GitHub repo (same level as main.py)
+
+app = "ml-drug-target-prediction-for-l-monocytogenes"
+primary_region = "lhr"  # London — change to "ord" (Chicago) or "sin" (Singapore) if preferred
+
+[build]
+  # Fly auto-detects Python via Nixpacks — no Dockerfile needed
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true   # sleeps when idle to stay in free tier
+  auto_start_machines = true  # wakes on first request
+  min_machines_running = 0
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
